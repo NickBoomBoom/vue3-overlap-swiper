@@ -125,13 +125,11 @@ onMounted(() => {
     </div>
     <img
       class="absolute z-30 w-7 h-7 left-8.5 top-1/2 -translate-y-1/2"
-      src="@/assets/image/arrow-circle-left.png"
       alt=""
       @click="prev"
     />
     <img
       class="absolute z-30 right-8.5 w-7 h-7 top-1/2 -translate-y-1/2"
-      src="@/assets/image/arrow-circle-right.png"
       alt=""
       @click="next"
     />
