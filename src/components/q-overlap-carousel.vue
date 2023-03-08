@@ -102,6 +102,7 @@ function init() {
   const items = getItems();
   for (let i = 0; i < items.length; i++) {
     const el = items[i];
+    const {width } = el.getBoundingClientRect()
     if (i === 0) {
       const { height } = el.getBoundingClientRect()
       swiperRef.value.style.height = height + 'px'
@@ -114,10 +115,12 @@ function init() {
 
     const opacity = i > props.flankCount ? 0 : 1
     const cursor = opacity ? 'pointer' : "auto"
-    const scale = SCALE - props.scaleRate * i
+    const scale = 1
+    // const scale = SCALE - props.scaleRate * i
+    const widthDiffrence = width - width*scale
     const zIndex = opacity ? items.length - i : 0;
-    let left = props.spaceWidth * i
-    console.log(i, left,)
+    let left = props.spaceWidth * i  + widthDiffrence/2
+    console.log(i, left, widthDiffrence)
     el.style.cssText = `
       left: calc(50% + ${left}px);
       transform: translate(-50%) scale(${scale});
