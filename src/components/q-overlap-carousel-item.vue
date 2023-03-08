@@ -1,13 +1,16 @@
-<script setup lang="ts">
-
-</script>
-
+ 
 <template>
-  <div class="swiper-item shrink-0">
+  <div ref="itemRef" class="q-overlap-carousel-item" @click="choose">
     <slot />
   </div>
-</template>
+</template> 
+<script setup lang="ts">
+import { inject, ref } from 'vue';
+const itemRef = ref()
+const itemClick = inject<(i: number) => void>('itemClick', () => { })
+const choose = () => {
+  const index = +itemRef.value.dataset.index
+  itemClick(index)
+}
 
-<style lang="scss" scoped>
-
-</style>
+</script>

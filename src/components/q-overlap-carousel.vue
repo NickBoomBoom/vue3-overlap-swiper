@@ -1,30 +1,39 @@
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted } from 'vue';
-
+import { ref, watch, nextTick, onMounted, provide } from 'vue';
 const props = withDefaults(
   defineProps<{
-    modelValue: number;
-    spaceWidth?: number;
-    limit?: number; // 左右显示数量
+    modelValue?: number; // 当前选择
+    spaceWidth?: number; //每个卡片之间的间隔
+    flankCount?: number; // 左右两翼展示数量
+    spacingRate?: number; // 每次间距的移动比例
+    scaleRate?: number; // 逐级缩小的比例
   }>(),
   {
     spaceWidth: 40,
     modelValue: 0,
-    limit: 3,
+    flankCount: 3,
+    spacingRate: .9,
+    scaleRate: .1
   }
 );
-const emits = defineEmits(["update:modelValue"]);
+const emits = defineEmits(["update:modelValue", "currentChange"]);
 const SCALE = 1;
-const SCALE_STEP = 0.15;
-const MULTIPLE = 5;
+const ITEM_CLASS_NAME = ".q-overlap-carousel-item";
 const swiperRef = ref();
-let swiperWidth: number;
-const ITEM_CLASS_NAME = ".swiper-item";
+
+const itemClick = (i: number) => {
+  const d = Math.abs(i - _current.value)
+  if (d < props.flankCount) {
+    _current.value = i;
+  }
+}
+provide('itemClick', itemClick)
 const _current = ref(props.modelValue);
 watch(_current, (val: number, oldVal: number) => {
   nextTick(() => {
     transition(val);
     emits("update:modelValue", val);
+    emits("currentChange", val)
   });
 });
 function getItems() {
@@ -46,29 +55,32 @@ function transition(val: number) {
     const d = Math.abs(val - i);
     if (i < val) {
       _z = i;
-      _s = SCALE - d * SCALE_STEP;
+      _s = SCALE - d * props.scaleRate;
       _x = -d * props.spaceWidth - (width - width * _s) / 2;
+      _o = d > props.flankCount ? 0 : 1;
       t.classList.add("mask");
-      _o = d > props.limit ? 0 : 1;
     } else if (i === val) {
       _s = 1;
       _z = items.length;
       _x = 0;
-      t.classList.remove("mask");
       _o = 1;
+      t.classList.remove("mask", "hide");
     } else if (i > val) {
       _z = items.length - i;
-      _s = SCALE - (i - val) * SCALE_STEP;
+      _s = SCALE - (i - val) * props.scaleRate;
       _x = (i - val) * props.spaceWidth + (width - width * _s) / 2;
+      _o = d > props.flankCount ? 0 : 1;
       t.classList.add("mask");
-      _o = d > props.limit ? 0 : 1;
     }
 
+    const cursor = _o ? 'pointer' : "auto"
     t.style.cssText = `
-    z-index: ${_z};
-    left: calc(50% + ${_x}px);
-    transform: translate(-50%) scale(${_s.toFixed(2)});
-    opacity: ${_o};
+      z-index: ${_o ? _z : 0};
+      left: calc(50% + ${_x}px);
+      transition: all .3s;
+      transform: translate(-50%) scale(${_s.toFixed(2)});
+      opacity: ${_o};
+      cursor:${cursor};
     `;
   }
 }
@@ -79,36 +91,39 @@ function prev() {
   _current.value -= 1;
 }
 function next() {
+  console.log(3333, _current.value)
   if (_current.value >= getItems().length - 1) {
     return;
   }
   _current.value += 1;
 }
-function choose(i: number) {
-  _current.value = i;
-}
-function init() {
-  const { width } = swiperRef.value.getBoundingClientRect();
-  swiperWidth = width;
-  const items = getItems();
 
+function init() {
+  const items = getItems();
   for (let i = 0; i < items.length; i++) {
     const el = items[i];
-    const zIndex = items.length - i;
-    // TODO:  后面再改改
-    el.addEventListener("click", () => {
-      choose(i);
-    });
+    if (i === 0) {
+      const { height } = el.getBoundingClientRect()
+      swiperRef.value.style.height = height + 'px'
+    }
+
+    el.dataset.index = i
     if (i > _current.value) {
       el.classList.add("mask");
     }
+
+    const opacity = i > props.flankCount ? 0 : 1
+    const cursor = opacity ? 'pointer' : "auto"
+    const scale = SCALE - props.scaleRate * i
+    const zIndex = opacity ? items.length - i : 0;
+    let left = props.spaceWidth * i
+    console.log(i, left,)
     el.style.cssText = `
-      left: calc(50% + ${
-        i === 0 ? 0 : props.spaceWidth * i - (i - 1) * MULTIPLE
-      }px);
-      transform: translate(-50%) scale(${SCALE - SCALE_STEP * i});
+      left: calc(50% + ${left}px);
+      transform: translate(-50%) scale(${scale});
       z-index: ${zIndex};
-      opacity: ${i > props.limit ? 0 : 1};
+      opacity: ${opacity};
+      cursor: ${cursor}
     `;
   }
 }
@@ -119,33 +134,78 @@ onMounted(() => {
 </script>
 
 <template>
-  <div ref="swiperRef" class="w-full overflow-hidden stack-swiper relative">
-    <div class="w-10/13 h-full mx-auto relative overflow-hidden">
+  <div ref="swiperRef" class="q-overlap-carousel">
+    <div class="q-overlap-carousel__wrap">
       <slot />
     </div>
-    <img
-      class="absolute z-30 w-7 h-7 left-8.5 top-1/2 -translate-y-1/2"
-      alt=""
-      @click="prev"
-    />
-    <img
-      class="absolute z-30 right-8.5 w-7 h-7 top-1/2 -translate-y-1/2"
-      alt=""
-      @click="next"
-    />
+    <div class="q-overlap-carousel__prev" alt="" @click="prev">
+      <slot name="prev">
+        <div class="q-overlap-carousel__prev-default">
+        </div>
+      </slot>
+    </div>
+    <div class="q-overlap-carousel__next" @click="next">
+      <slot name="next">
+        <div class="q-overlap-carousel__next-default">
+        </div>
+      </slot>
+    </div>
   </div>
 </template>
 
 <style lang="less">
-.stack-swiper {
-  .swiper-item {
+.q-overlap-carousel {
+  width: 100%;
+  height: 100%;
+  position: relative;
+
+  &__prev {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+    z-index: 10;
+    cursor: pointer;
+
+    &-default {
+      width: 40px;
+      height: 40px;
+      background-color: red;
+    }
+  }
+
+  &__next {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    z-index: 10;
+    cursor: pointer;
+
+    &-default {
+      width: 40px;
+      height: 40px;
+      background-color: yellowgreen;
+    }
+  }
+
+  &__wrap {}
+
+  &-item {
     flex-shrink: 0;
-    transition: all 0.3s;
     position: absolute;
     left: 50%;
     transform: translate(-50%);
     overflow: hidden;
     cursor: pointer;
+
+    &.show {
+      visibility: visible;
+    }
+
+    &.hide {
+      visibility: hidden;
+    }
 
     &.mask {
       &::after {
@@ -162,5 +222,7 @@ onMounted(() => {
       }
     }
   }
+
+
 }
 </style>
